@@ -4,6 +4,9 @@
 
 This project is structured as a **monorepo** containing a robust **Laravel REST API backend** and a responsive **Next.js (React) SPA frontend** — all unified under one codebase for seamless development and deployment.
 
+<img width="2024" height="790" alt="image" src="https://github.com/user-attachments/assets/6fedf8b2-30d6-4047-8587-116de7d317e9" />
+
+
 ---
 
 ## 🎯 Core Vision
@@ -73,6 +76,9 @@ OpsPilot integrates advanced AI features to enhance productivity and automate ro
    - AI-optimized role assignment
    - Anomaly detection for unauthorized access attempts
    - Smart permission recommendations based on job roles
+
+<img width="1819" height="530" alt="image" src="https://github.com/user-attachments/assets/f776005b-3b33-415d-bb05-bad8e002089c" />
+
 
 ---
 
@@ -360,6 +366,9 @@ Once logged in, you'll see:
 
 **User Benefit:** SaaS providers can run OpsPilot for hundreds of companies without data leakage.
 
+<img width="1173" height="489" alt="image" src="https://github.com/user-attachments/assets/6b9f759d-5ca6-4c7e-839f-9379ad5ead74" />
+
+
 ---
 
 ### **2. Role-Based Access Control (RBAC)**
@@ -522,6 +531,9 @@ Every setting change is logged with:
 - Job designation
 - Department & team assignment
 - Active/inactive status
+
+<img width="1879" height="653" alt="image" src="https://github.com/user-attachments/assets/54588956-5af2-47e2-ac79-6d96b96288d8" />
+
 
 ---
 
