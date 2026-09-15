@@ -1,0 +1,88 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: ../docker/php/Dockerfile
+    container_name: opspilot_backend
+    volumes:
+      - ./backend:/var/www/html
+    working_dir: /var/www/html
+    depends_on:
+      - mysql
+      - redis
+    networks:
+      - opspilot
+
+  nginx:
+    image: nginx:stable-alpine
+    container_name: opspilot_nginx
+    ports:
+      - "8000:80"
+    volumes:
+      - ./backend:/var/www/html
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - backend
+    networks:
+      - opspilot
+
+  mysql:
+    image: mysql:8.0
+    container_name: opspilot_mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: opspilot
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_USER: opspilot
+      MYSQL_PASSWORD: opspilot
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - opspilot
+
+  redis:
+    image: redis:7-alpine
+    container_name: opspilot_redis
+    ports:
+      - "6379:6379"
+    networks:
+      - opspilot
+
+  horizon:
+    build:
+      context: ./backend
+      dockerfile: ../docker/php/Dockerfile
+    container_name: opspilot_horizon
+    command: php artisan horizon
+    volumes:
+      - ./backend:/var/www/html
+    working_dir: /var/www/html
+    depends_on:
+      - backend
+      - redis
+    networks:
+      - opspilot
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: ../docker/node/Dockerfile
+    container_name: opspilot_frontend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    working_dir: /app
+    ports:
+      - "3000:3000"
+    command: npm run dev
+    networks:
+      - opspilot
+
+networks:
+  opspilot:
+    driver: bridge
+
+volumes:
+  mysql_data:
