@@ -701,49 +701,107 @@ npm run test
 
 ---
 
-## 📦 Deployment Guide
+## 📦 Production & Cloud Deployment Guide (Docker & AWS EC2)
 
-### **Build for Production**
+OpsPilot is fully containerized using Docker and Docker Compose. It uses an **Nginx unified reverse proxy on Port 80** that handles both the Next.js frontend and Laravel backend under a single origin, avoiding CORS issues and simplifying multi-tenant cookie sharing across subdomains.
 
-#### Backend Build
-```bash
-cd backend
+### 1. Server Prerequisites
+* **Operating System:** Ubuntu 24.04 LTS (AWS EC2 Free Tier `t3.micro` or `t2.micro` supported).
+* **Memory Optimization (Crucial for 1GB RAM instances):** Add 4GB Swap space before building:
+  ```bash
+  sudo fallocate -l 4G /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile && echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+  ```
+* **Install Docker & Docker Compose:**
+  ```bash
+  sudo apt update && sudo apt install -y git curl && curl -fsSL https://get.docker.com -o get-docker.sh && sudo sh get-docker.sh && sudo usermod -aG docker ubuntu
+  newgrp docker
+  ```
 
-# Install dependencies
-composer install --no-dev
+### 2. Wildcard Subdomain Strategy (Zero-Cost DNS)
+Because OpsPilot requires wildcard subdomains (`platform.<domain>` and `<tenant>.<domain>`), you can use **[sslip.io](https://sslip.io)** with your server's Public IP without purchasing a domain:
+* **Base IP:** e.g. `100.58.183.34`
+* **Root Domain:** `100.58.183.34.sslip.io`
+* **Platform Portal:** `platform.100.58.183.34.sslip.io`
+* **Tenant Workspaces:** `acme.100.58.183.34.sslip.io`
 
-# Build optimizations
-php artisan config:cache
-php artisan route:cache
-php artisan view:cache
+### 3. Environment Configuration
 
-# Migrate production database
-php artisan migrate --force
-```
+1. Clone repository to server:
+   ```bash
+   git clone https://github.com/Abdullah929-design/OpsPilot.git opspilot
+   cd opspilot
+   ```
 
-#### Frontend Build
-```bash
-cd frontend
+2. Create `backend/.env`:
+   ```env
+   APP_NAME=OpsPilot
+   APP_ENV=production
+   APP_DEBUG=false
+   APP_URL=http://<YOUR-IP>.sslip.io
+   APP_KEY=
 
-# Build optimized bundle
-npm run build
+   DB_CONNECTION=mysql
+   DB_HOST=mysql
+   DB_PORT=3306
+   DB_DATABASE=opspilot
+   DB_USERNAME=opspilot
+   DB_PASSWORD=opspilot
 
-# Start production server
-npm start
-```
+   SESSION_DRIVER=database
+   SESSION_DOMAIN=.<YOUR-IP>.sslip.io
+   SANCTUM_STATEFUL_DOMAINS=<YOUR-IP>.sslip.io,platform.<YOUR-IP>.sslip.io,*.<YOUR-IP>.sslip.io
 
-### **Environment Variables (Production)**
-```env
-# Backend (.env)
-APP_ENV=production
-APP_DEBUG=false
-DB_HOST=prod-db.example.com
-DB_DATABASE=opspilot_prod
-SANCTUM_STATEFUL_DOMAINS=opspilot.com
+   REDIS_CLIENT=phpredis
+   REDIS_HOST=redis
+   REDIS_PORT=6379
+   QUEUE_CONNECTION=database
+   CACHE_STORE=database
+   ```
 
-# Frontend (.env.production)
-NEXT_PUBLIC_API_URL=https://api.opspilot.com
-```
+3. Create `frontend/.env.local`:
+   ```env
+   NEXT_PUBLIC_API_URL=http://<YOUR-IP>.sslip.io/api
+   ```
+
+### 4. Build & Launch Containers
+
+1. Start all containers in detached mode:
+   ```bash
+   docker compose up -d --build
+   ```
+
+2. Run one-time backend initialization:
+   ```bash
+   docker compose exec backend composer install --no-interaction --prefer-dist --optimize-autoloader
+   docker compose exec backend php artisan key:generate
+   docker compose exec backend php artisan storage:link
+   docker compose exec backend chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
+   docker compose exec backend chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
+   docker compose exec backend php artisan migrate:fresh --seed --force
+   docker compose restart horizon
+   ```
+
+### 5. Production Performance Optimizations
+
+1. Build the Next.js production bundle:
+   ```bash
+   docker compose exec frontend npm run build
+   sed -i 's/command: npm run dev/command: npm start/' docker-compose.yml
+   docker compose restart frontend
+   ```
+
+2. Cache Laravel routes, configuration, and views:
+   ```bash
+   docker compose exec backend php artisan config:cache
+   docker compose exec backend php artisan route:cache
+   docker compose exec backend php artisan view:cache
+   ```
+
+### 6. Default Seeded Credentials
+* **Platform Admin Portal:** `http://platform.<YOUR-IP>.sslip.io/login`
+  * **Email:** `platform-admin@opspilot.test` | **Password:** `P@ssword123`
+* **Tenant Workspace (Acme Corp):** `http://acme.<YOUR-IP>.sslip.io/login`
+  * **Email:** `admin@opspilot.test` | **Password:** `P@ssword123`
 
 ---
 
