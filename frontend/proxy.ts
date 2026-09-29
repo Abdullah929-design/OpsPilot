@@ -5,13 +5,14 @@ export default function proxy(request: NextRequest) {
     const host = request.headers.get('host') || '';
     const pathname = request.nextUrl.pathname;
 
-    // 1. Bypass Next.js internal routes, static files, and APIs
+    // 1. Bypass Next.js internal routes, static files, videos, and APIs
     if (
         pathname.startsWith('/_next') ||
         pathname.startsWith('/static') ||
         pathname.startsWith('/favicon.ico') ||
         pathname.startsWith('/api') ||
-        pathname.startsWith('/sso')
+        pathname.startsWith('/sso') ||
+        pathname.startsWith('/videos')
     ) {
         return NextResponse.next();
     }
@@ -21,23 +22,45 @@ export default function proxy(request: NextRequest) {
     const parts = hostname.split('.');
 
     let subdomain = '';
-    if (parts.length > 2) {
+    if (hostname.endsWith('.sslip.io')) {
+        // e.g. platform.100.58.183.34.sslip.io
+        if (parts.length > 6) {
+            subdomain = parts[0].toLowerCase();
+        }
+    } else if (parts.length > 2) {
         subdomain = parts[0].toLowerCase();
     }
 
-    // 3. Platform routes (no subdomain, or www/app/platform)
-    if (!subdomain || ['www', 'app', 'platform'].includes(subdomain)) {
-        // If the path already has /platform prefix, proceed
+    // 3. Platform routes (subdomain === 'platform')
+    if (subdomain === 'platform') {
         if (pathname.startsWith('/platform')) {
             return NextResponse.next();
         }
         return NextResponse.rewrite(new URL(`/platform${pathname}`, request.url));
     }
 
-    // 4. Tenant routes (e.g. acme.opspilot.test)
-    // If the path already has /tenant prefix, proceed
-    if (pathname.startsWith('/tenant')) {
+    // 4. Tenant routes (e.g. acme.opspilot.test or acme.100.58.183.34.sslip.io)
+    if (subdomain && !['www', 'app'].includes(subdomain)) {
+        if (pathname.startsWith('/tenant')) {
+            return NextResponse.next();
+        }
+        return NextResponse.rewrite(new URL(`/tenant${pathname}`, request.url));
+    }
+
+    // 5. Platform routes explicitly targeted on root domain
+    if (pathname.startsWith('/platform') || pathname.startsWith('/tenant')) {
         return NextResponse.next();
     }
-    return NextResponse.rewrite(new URL(`/tenant${pathname}`, request.url));
+
+    // 6. Root domain / marketing landing page
+    if (pathname === '/') {
+        return NextResponse.next();
+    }
+
+    // Fallback for /login on naked root domain -> tenant login
+    if (pathname === '/login') {
+        return NextResponse.rewrite(new URL('/tenant/login', request.url));
+    }
+
+    return NextResponse.next();
 }

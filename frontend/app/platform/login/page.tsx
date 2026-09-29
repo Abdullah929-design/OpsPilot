@@ -44,6 +44,40 @@ export default function PlatformLoginPage() {
                         </Typography>
                     </Box>
 
+                    {/* Demo Credentials Card */}
+                    <Box
+                        sx={{
+                            p: 2,
+                            borderRadius: 2,
+                            bgcolor: "action.hover",
+                            border: "1px dashed",
+                            borderColor: "primary.light",
+                        }}
+                    >
+                        <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center", mb: 1 }}>
+                            <Typography variant="caption" sx={{ fontWeight: 700, color: "primary.main", textTransform: "uppercase", letterSpacing: 0.5 }}>
+                                Seeded Demo Credentials
+                            </Typography>
+                            <Button
+                                size="small"
+                                variant="text"
+                                onClick={() => {
+                                    formik.setFieldValue("email", "platform-admin@opspilot.test");
+                                    formik.setFieldValue("password", "P@ssword123");
+                                }}
+                                sx={{ textTransform: "none", py: 0, px: 1, fontSize: "0.75rem" }}
+                            >
+                                Auto-fill
+                            </Button>
+                        </Stack>
+                        <Typography variant="body2" sx={{ fontFamily: "monospace", fontSize: "0.8rem", color: "text.secondary" }}>
+                            Email: <strong style={{ color: "var(--foreground)" }}>platform-admin@opspilot.test</strong>
+                        </Typography>
+                        <Typography variant="body2" sx={{ fontFamily: "monospace", fontSize: "0.8rem", color: "text.secondary" }}>
+                            Password: <strong style={{ color: "var(--foreground)" }}>P@ssword123</strong>
+                        </Typography>
+                    </Box>
+
                     <form onSubmit={formik.handleSubmit}>
                         <Stack spacing={2}>
                             {login.isError && (
