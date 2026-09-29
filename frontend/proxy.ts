@@ -31,7 +31,19 @@ export default function proxy(request: NextRequest) {
         subdomain = parts[0].toLowerCase();
     }
 
-    // 3. Platform routes (subdomain === 'platform')
+    // 3. Redirect naked root domain to subdomains when accessing auth routes
+    if (!subdomain) {
+        const protocol = request.nextUrl.protocol || 'http:';
+        if (pathname.startsWith('/platform')) {
+            return NextResponse.redirect(`${protocol}//platform.${host}${pathname}`);
+        }
+        if (pathname === '/login' || pathname.startsWith('/tenant')) {
+            const targetPath = pathname.startsWith('/tenant') ? pathname : '/login';
+            return NextResponse.redirect(`${protocol}//acme.${host}${targetPath}`);
+        }
+    }
+
+    // 4. Platform routes (subdomain === 'platform')
     if (subdomain === 'platform') {
         if (pathname.startsWith('/platform')) {
             return NextResponse.next();
@@ -39,7 +51,7 @@ export default function proxy(request: NextRequest) {
         return NextResponse.rewrite(new URL(`/platform${pathname}`, request.url));
     }
 
-    // 4. Tenant routes (e.g. acme.opspilot.test or acme.100.58.183.34.sslip.io)
+    // 5. Tenant routes (e.g. acme.opspilot.test or acme.100.58.183.34.sslip.io)
     if (subdomain && !['www', 'app'].includes(subdomain)) {
         if (pathname.startsWith('/tenant')) {
             return NextResponse.next();
@@ -47,19 +59,9 @@ export default function proxy(request: NextRequest) {
         return NextResponse.rewrite(new URL(`/tenant${pathname}`, request.url));
     }
 
-    // 5. Platform routes explicitly targeted on root domain
-    if (pathname.startsWith('/platform') || pathname.startsWith('/tenant')) {
-        return NextResponse.next();
-    }
-
     // 6. Root domain / marketing landing page
     if (pathname === '/') {
         return NextResponse.next();
-    }
-
-    // Fallback for /login on naked root domain -> tenant login
-    if (pathname === '/login') {
-        return NextResponse.rewrite(new URL('/tenant/login', request.url));
     }
 
     return NextResponse.next();

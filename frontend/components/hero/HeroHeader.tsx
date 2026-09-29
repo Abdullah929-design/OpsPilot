@@ -12,10 +12,30 @@ export function HeroHeader({ className = '' }: HeroHeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const platformLoginUrl =
-    process.env.NEXT_PUBLIC_PLATFORM_LOGIN_URL || '/platform/login';
-  const companyLoginUrl =
-    process.env.NEXT_PUBLIC_COMPANY_LOGIN_URL || '/login';
+  const [platformLoginUrl, setPlatformLoginUrl] = useState(
+    process.env.NEXT_PUBLIC_PLATFORM_LOGIN_URL || '/platform/login'
+  );
+  const [companyLoginUrl, setCompanyLoginUrl] = useState(
+    process.env.NEXT_PUBLIC_COMPANY_LOGIN_URL || '/login'
+  );
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const host = window.location.host;
+      const protocol = window.location.protocol;
+      const hostname = window.location.hostname;
+      const parts = hostname.split('.');
+
+      if (hostname.endsWith('.sslip.io') && parts.length === 6) {
+        setCompanyLoginUrl(`${protocol}//acme.${host}/login`);
+        setPlatformLoginUrl(`${protocol}//platform.${host}/login`);
+      } else if (hostname === 'opspilot.test' || hostname === 'localhost') {
+        const port = window.location.port ? `:${window.location.port}` : '';
+        setCompanyLoginUrl(`${protocol}//acme.opspilot.test${port}/login`);
+        setPlatformLoginUrl(`${protocol}//platform.opspilot.test${port}/login`);
+      }
+    }
+  }, []);
 
   // Close dropdown on outside click
   useEffect(() => {

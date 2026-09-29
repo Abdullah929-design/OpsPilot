@@ -130,12 +130,12 @@ export function ContactSection() {
             <span>&copy; {new Date().getFullYear()} OpsPilot Systems Inc. All rights reserved.</span>
           </div>
           <div className="flex items-center gap-6">
-            <Link href="/platform/login" className="hover:text-indigo-600 transition-colors">
+            <a href="/platform/login" className="hover:text-indigo-600 transition-colors">
               Platform Admin
-            </Link>
-            <Link href="/login" className="hover:text-indigo-600 transition-colors">
+            </a>
+            <a href="/login" className="hover:text-indigo-600 transition-colors">
               Company Login
-            </Link>
+            </a>
             <a href="#contact" className="hover:text-indigo-600 transition-colors">
               Contact
             </a>
