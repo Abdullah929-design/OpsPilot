@@ -14,7 +14,7 @@ interface UseVideoScrubOptions {
 }
 
 export function useVideoScrub(options: UseVideoScrubOptions = {}) {
-  const { totalSteps = 8, easing = 0.09 } = options;
+  const { totalSteps = 8 } = options;
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -26,12 +26,8 @@ export function useVideoScrub(options: UseVideoScrubOptions = {}) {
   const [videoError, setVideoError] = useState(false);
   const [isReducedMotion, setIsReducedMotion] = useState(false);
 
-  const targetTimeRef = useRef(0);
-  const smoothedTimeRef = useRef(0);
-  const isSeekingRef = useRef(false);
-  const pendingSeekTimeRef = useRef<number | null>(null);
-  const rafIdRef = useRef<number | null>(null);
   const scrollTriggerRef = useRef<ScrollTrigger | null>(null);
+  const tweenRef = useRef<gsap.core.Tween | null>(null);
 
   // Check prefers-reduced-motion
   useEffect(() => {
@@ -59,24 +55,6 @@ export function useVideoScrub(options: UseVideoScrubOptions = {}) {
 
     let isDestroyed = false;
 
-    // Handler when decoder finishes seeking a frame
-    const handleSeeked = () => {
-      isSeekingRef.current = false;
-
-      // If a newer time arrived while seeking, apply it immediately
-      if (pendingSeekTimeRef.current !== null && !isDestroyed) {
-        const nextTime = pendingSeekTimeRef.current;
-        pendingSeekTimeRef.current = null;
-
-        if (Math.abs(video.currentTime - nextTime) > 0.01) {
-          isSeekingRef.current = true;
-          video.currentTime = nextTime;
-        }
-      }
-    };
-
-    video.addEventListener('seeked', handleSeeked);
-
     const handleLoadedMetadata = () => {
       if (isDestroyed) return;
       setLoadProgress(80);
@@ -84,74 +62,45 @@ export function useVideoScrub(options: UseVideoScrubOptions = {}) {
       video.pause();
       video.muted = true;
       video.currentTime = 0;
-      targetTimeRef.current = 0;
-      smoothedTimeRef.current = 0;
 
-      // ScrollTrigger with built-in smooth scrub
-      const st = ScrollTrigger.create({
-        trigger: container,
-        start: 'top top',
-        end: 'bottom bottom',
-        scrub: 0.6, // Adds silky smooth inertia to scroll progress
-        onUpdate: (self) => {
-          if (isDestroyed) return;
-          const p = Math.max(0, Math.min(1, self.progress));
-          setProgress(p);
+      const dur = video.duration && isFinite(video.duration) ? video.duration : 10;
+      const videoProxy = { time: 0 };
 
-          const step = Math.min(totalSteps - 1, Math.floor(p * totalSteps));
-          setActiveStep(step);
+      // High-performance GSAP scrub tween (smooth 0.35s inertia, zero lag)
+      const tween = gsap.to(videoProxy, {
+        time: dur,
+        ease: 'none',
+        scrollTrigger: {
+          trigger: container,
+          start: 'top top',
+          end: 'bottom bottom',
+          scrub: 0.35,
+          onUpdate: (self) => {
+            if (isDestroyed) return;
+            const p = Math.max(0, Math.min(1, self.progress));
+            setProgress(p);
 
-          if (video.duration && !isNaN(video.duration) && isFinite(video.duration)) {
-            targetTimeRef.current = p * video.duration;
+            const step = Math.min(totalSteps - 1, Math.floor(p * totalSteps));
+            setActiveStep(step);
+          },
+        },
+        onUpdate: () => {
+          if (isDestroyed || video.readyState < 2) return;
+          const target = videoProxy.time;
+          if (Math.abs(video.currentTime - target) > 0.02) {
+            if ('fastSeek' in video) {
+              (video as any).fastSeek(target);
+            } else {
+              video.currentTime = target;
+            }
           }
         },
       });
 
-      scrollTriggerRef.current = st;
+      tweenRef.current = tween;
+      scrollTriggerRef.current = tween.scrollTrigger as ScrollTrigger;
       setIsLoaded(true);
       setLoadProgress(100);
-
-      // Continuous lerp loop with hardware decoder queue protection
-      const loop = () => {
-        if (isDestroyed) return;
-
-        const target = targetTimeRef.current;
-        const current = smoothedTimeRef.current;
-        const delta = target - current;
-
-        // Smoothly interpolate towards target
-        if (Math.abs(delta) > 0.004) {
-          smoothedTimeRef.current = current + delta * easing;
-        } else {
-          smoothedTimeRef.current = target;
-        }
-
-        const desiredTime = smoothedTimeRef.current;
-
-        // Only commit currentTime when decoder is idle to avoid frame drops
-        if (
-          video.readyState >= 2 &&
-          isFinite(desiredTime) &&
-          desiredTime >= 0 &&
-          desiredTime <= (video.duration || 9999)
-        ) {
-          const timeDiff = Math.abs(video.currentTime - desiredTime);
-
-          if (timeDiff > 0.012) {
-            if (!isSeekingRef.current && !video.seeking) {
-              isSeekingRef.current = true;
-              video.currentTime = desiredTime;
-            } else {
-              // Store latest timestamp so it fires as soon as current seek completes
-              pendingSeekTimeRef.current = desiredTime;
-            }
-          }
-        }
-
-        rafIdRef.current = requestAnimationFrame(loop);
-      };
-
-      rafIdRef.current = requestAnimationFrame(loop);
     };
 
     const handleError = () => {
@@ -165,7 +114,7 @@ export function useVideoScrub(options: UseVideoScrubOptions = {}) {
         trigger: container,
         start: 'top top',
         end: 'bottom bottom',
-        scrub: 0.6,
+        scrub: 0.35,
         onUpdate: (self) => {
           const p = Math.max(0, Math.min(1, self.progress));
           setProgress(p);
@@ -186,13 +135,12 @@ export function useVideoScrub(options: UseVideoScrubOptions = {}) {
 
     return () => {
       isDestroyed = true;
-      if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
+      if (tweenRef.current) tweenRef.current.kill();
       if (scrollTriggerRef.current) scrollTriggerRef.current.kill();
       video.removeEventListener('loadedmetadata', handleLoadedMetadata);
-      video.removeEventListener('seeked', handleSeeked);
       video.removeEventListener('error', handleError);
     };
-  }, [isReducedMotion, totalSteps, easing]);
+  }, [isReducedMotion, totalSteps]);
 
   // Programmatic scroll to a specific step (0 to totalSteps - 1)
   const scrollToStep = useCallback(
