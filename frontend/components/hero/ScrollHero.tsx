@@ -11,7 +11,7 @@ import { FEATURE_STEPS } from '@/lib/heroSteps';
 export function ScrollHero() {
   const {
     containerRef,
-    videoRef,
+    canvasRef,
     progress,
     activeStep,
     isLoaded,
@@ -19,7 +19,7 @@ export function ScrollHero() {
     videoError,
     isReducedMotion,
     scrollToStep,
-  } = useVideoScrub({ totalSteps: 8, easing: 0.09 });
+  } = useVideoScrub({ totalSteps: 8, frameRate: 24 });
 
   const [mobileTab, setMobileTab] = useState<'left' | 'right'>('left');
 
@@ -81,17 +81,12 @@ export function ScrollHero() {
               <div className="w-96 h-96 rounded-full bg-cyan-500/10 blur-3xl pointer-events-none" />
             </div>
           ) : (
-            <video
-              ref={videoRef}
-              src="/videos/hero-scrub.mp4"
-              poster="/videos/hero-poster.jpg"
-              playsInline
-              muted
-              preload="auto"
+            <canvas
+              ref={canvasRef}
               aria-hidden="true"
-              className="w-full h-full object-cover object-center select-none pointer-events-none"
               width={1920}
               height={1080}
+              className="w-full h-full object-cover object-center select-none pointer-events-none"
             />
           )}
 
