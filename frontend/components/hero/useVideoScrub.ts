@@ -88,7 +88,7 @@ export function useVideoScrub(options: UseVideoScrubOptions = {}) {
           if (isDestroyed || video.readyState < 2) return;
           const target = videoProxy.time;
           if (Math.abs(video.currentTime - target) > 0.02) {
-            if ('fastSeek' in video) {
+            if (typeof (video as any).fastSeek === 'function') {
               (video as any).fastSeek(target);
             } else {
               video.currentTime = target;
